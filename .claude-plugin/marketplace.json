@@ -1,0 +1,14 @@
+{
+  "name": "job-hunt-tools",
+  "description": "Job-hunting tools for Claude: CV tailoring, interview-chance rating and application tracking.",
+  "owner": {
+    "name": "Mayowa Dabiri"
+  },
+  "plugins": [
+    {
+      "name": "job-hunt",
+      "source": "./plugins/job-hunt",
+      "description": "Daily job search, interview-chance ratings, keyword-tailored CVs in your Google Drive, a job tracker, and cold email drafts."
+    }
+  ]
+}

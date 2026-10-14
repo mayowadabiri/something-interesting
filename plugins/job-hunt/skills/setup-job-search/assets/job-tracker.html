@@ -1,0 +1,313 @@
+<title>Job Application Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a pipeline strip on top (counts per stage, doubles as filter), then a ledger of applications; an add/edit drawer slides over on demand. */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #17202b;
+  --muted: #5d6877;
+  --line: #dde2e9;
+  --accent: #2448c4;
+  --accent-ink: #ffffff;
+  --accent-soft: #e7ecfb;
+  --s-saved: #7a8494;
+  --s-applied: #2448c4;
+  --s-interview: #a0620a;
+  --s-offer: #1f7a4d;
+  --s-rejected: #b23a3a;
+  --s-silent: #6b5aa8;
+  --warn-bg: #fff4dc;
+  --warn-ink: #7a4b00;
+  --display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11161d; --surface: #19202a; --ink: #e6ebf2; --muted: #98a3b3; --line: #2a3442;
+  --accent: #7b97ff; --accent-ink: #0d1430; --accent-soft: #1f2a4a;
+  --s-saved: #9aa4b4; --s-applied: #7b97ff; --s-interview: #e3a53f; --s-offer: #4fc48a; --s-rejected: #f07a7a; --s-silent: #a796ee;
+  --warn-bg: #3a2c10; --warn-ink: #f3c56b; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11161d; --surface: #19202a; --ink: #e6ebf2; --muted: #98a3b3; --line: #2a3442;
+  --accent: #7b97ff; --accent-ink: #0d1430; --accent-soft: #1f2a4a;
+  --s-saved: #9aa4b4; --s-applied: #7b97ff; --s-interview: #e3a53f; --s-offer: #4fc48a; --s-rejected: #f07a7a; --s-silent: #a796ee;
+  --warn-bg: #3a2c10; --warn-ink: #f3c56b; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 28px 64px; display: grid; gap: 24px; }
+header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
+h1 { font-family: var(--display); font-size: clamp(1.6rem, 4vw, 2.2rem); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; }
+button { font: inherit; cursor: pointer; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 8px 14px; font-weight: 500; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.danger { color: var(--s-rejected); }
+.btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .stage:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* pipeline */
+.pipeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.stage { text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; color: var(--ink); }
+.stage .n { font-family: var(--display); font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.stage .l { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.stage[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c, var(--muted)); flex: none; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.toolbar input { flex: 1 1 220px; min-width: 0; }
+.alert { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 10px 14px; font-size: 0.92rem; }
+
+/* ledger */
+.ledger { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.row { display: grid; grid-template-columns: minmax(0, 2.2fr) 150px 92px 110px 120px auto; gap: 14px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row.head { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding-block: 10px; background: var(--bg); }
+.job { min-width: 0; }
+.job .co { font-weight: 600; }
+.job .role { color: var(--muted); font-size: 0.92rem; overflow-wrap: anywhere; }
+.job a { color: var(--accent); font-size: 0.85rem; }
+.mono { font-family: var(--mono); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+.fit { display: flex; align-items: center; gap: 8px; }
+.bar { width: 40px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); }
+.due { display: inline-block; background: var(--warn-bg); color: var(--warn-ink); border-radius: 4px; padding: 0 6px; font-size: 0.78rem; font-family: var(--body); }
+select.status { font: inherit; font-size: 0.88rem; padding: 5px 8px; border-radius: 999px; border: 1px solid var(--c); color: var(--c); background: var(--surface); max-width: 100%; }
+.notes { grid-column: 1 / -1; color: var(--muted); font-size: 0.88rem; margin-top: -6px; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 6px; justify-content: end; }
+.actions .btn { padding: 5px 10px; font-size: 0.85rem; }
+.empty { padding: 40px 20px; text-align: center; color: var(--muted); display: grid; gap: 12px; justify-items: center; }
+.empty strong { color: var(--ink); font-family: var(--display); font-size: 1.2rem; }
+.k { display: none; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .row.head { display: none; }
+  .row { grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .job, .actions { grid-column: 1 / -1; }
+  .actions { justify-content: start; }
+  .k { display: block; }
+}
+
+/* drawer */
+.scrim { position: fixed; inset: 0; background: rgb(10 14 20 / 0.45); display: flex; justify-content: end; z-index: 10; }
+.drawer { background: var(--surface); width: min(460px, 100%); height: 100%; overflow-y: auto; padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 14px; align-content: start; padding-top: calc(24px + env(safe-area-inset-top, 0px)); }
+.drawer h2 { font-family: var(--display); margin: 0; font-size: 1.4rem; }
+label { display: grid; gap: 4px; font-size: 0.85rem; font-weight: 500; color: var(--muted); }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; min-width: 0; width: 100%; }
+textarea { min-height: 90px; resize: vertical; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.drawer .foot { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; padding-top: 6px; }
+.err { color: var(--s-rejected); font-size: 0.88rem; }
+.confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.88rem; }
+@media (prefers-reduced-motion: no-preference) { .drawer { animation: slide .18s ease-out; } @keyframes slide { from { transform: translateX(24px); opacity: .6; } } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Job Application Tracker</h1>
+      <p class="sub">Every role you've saved or applied for, and where each one stands.</p>
+    </div>
+    <button class="btn primary" id="addBtn" type="button">+ Add application</button>
+  </header>
+
+  <nav class="pipeline" id="pipeline" aria-label="Filter by status"></nav>
+  <div class="alert" id="followups" hidden></div>
+
+  <div class="toolbar">
+    <input id="search" type="search" placeholder="Search company, role or notes" aria-label="Search applications">
+    <select id="sort" aria-label="Sort" style="width:auto">
+      <option value="updated">Recently updated</option>
+      <option value="applied">Date applied</option>
+      <option value="fit">Fit score</option>
+      <option value="company">Company A–Z</option>
+    </select>
+  </div>
+
+  <section class="ledger" id="ledger" aria-live="polite">
+    <div class="empty"><strong>Loading your applications…</strong></div>
+  </section>
+  <p class="err" id="pageErr" hidden></p>
+</div>
+
+<div class="scrim" id="scrim" hidden>
+  <form class="drawer" id="form" novalidate>
+    <h2 id="formTitle">Add application</h2>
+    <label>Company<input id="f-company" required></label>
+    <label>Role<input id="f-role" required></label>
+    <div class="two">
+      <label>Location<input id="f-location" placeholder="City / Remote"></label>
+      <label>Source<input id="f-source" placeholder="LinkedIn, Jobberman…"></label>
+    </div>
+    <label>Job link<input id="f-link" type="url" placeholder="https://"></label>
+    <div class="two">
+      <label>Status<select id="f-status"></select></label>
+      <label>Fit score (0–100)<input id="f-fit" type="number" min="0" max="100" inputmode="numeric"></label>
+    </div>
+    <div class="two">
+      <label>Date applied<input id="f-applied" type="date"></label>
+      <label>Follow up on<input id="f-followUp" type="date"></label>
+    </div>
+    <label>Contact<input id="f-contact" placeholder="Recruiter name or email"></label>
+    <label>Notes<textarea id="f-notes" placeholder="Interview dates, salary range, what you tailored…"></textarea></label>
+    <p class="err" id="formErr" hidden></p>
+    <div class="foot">
+      <div class="confirm" id="delWrap"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" type="button" id="cancelBtn">Cancel</button>
+        <button class="btn primary" type="submit" id="saveBtn">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+const STATUSES = [
+  { id: "saved", label: "Saved", c: "--s-saved" },
+  { id: "applied", label: "Applied", c: "--s-applied" },
+  { id: "interview", label: "Interviewing", c: "--s-interview" },
+  { id: "offer", label: "Offer", c: "--s-offer" },
+  { id: "rejected", label: "Rejected", c: "--s-rejected" },
+  { id: "silent", label: "No response", c: "--s-silent" },
+];
+const S = Object.fromEntries(STATUSES.map(s => [s.id, s]));
+const $ = id => document.getElementById(id);
+let db = null, col = null, apps = [], filter = null, editing = null, loaded = false;
+
+const today = () => new Date().toISOString().slice(0, 10);
+const fmt = d => d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "—";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+const isDue = a => a.followUp && a.followUp <= today() && (a.status === "applied" || a.status === "interview" || a.status === "silent");
+
+$("f-status").innerHTML = STATUSES.map(s => `<option value="${s.id}">${s.label}</option>`).join("");
+
+function renderPipeline() {
+  const counts = Object.fromEntries(STATUSES.map(s => [s.id, 0]));
+  apps.forEach(a => { if (counts[a.status] !== undefined) counts[a.status]++; });
+  const all = `<button type="button" class="stage" data-f="" aria-pressed="${filter === null}"><span class="n">${apps.length}</span><span class="l">All</span></button>`;
+  $("pipeline").innerHTML = all + STATUSES.map(s =>
+    `<button type="button" class="stage" data-f="${s.id}" aria-pressed="${filter === s.id}"><span class="n">${counts[s.id]}</span><span class="l"><span class="dot" style="--c:var(${s.c})"></span>${s.label}</span></button>`).join("");
+  const due = apps.filter(isDue);
+  $("followups").hidden = !due.length;
+  if (due.length) $("followups").textContent = `Follow-up due: ${due.map(a => `${a.company} (${a.role})`).join(", ")}`;
+}
+
+function renderLedger() {
+  if (!loaded) return;
+  const q = $("search").value.trim().toLowerCase();
+  let list = apps.filter(a => (!filter || a.status === filter) &&
+    (!q || [a.company, a.role, a.notes, a.location, a.source].some(v => String(v || "").toLowerCase().includes(q))));
+  const sort = $("sort").value;
+  list.sort((x, y) => sort === "fit" ? (y.fit ?? -1) - (x.fit ?? -1)
+    : sort === "company" ? String(x.company).localeCompare(String(y.company))
+    : sort === "applied" ? String(y.applied || "").localeCompare(String(x.applied || ""))
+    : String(y.updated || "").localeCompare(String(x.updated || "")));
+
+  if (!apps.length) {
+    $("ledger").innerHTML = `<div class="empty"><strong>No applications yet</strong><span>Add a job you've applied for or want to apply for. Status, fit score and follow-up dates live here.</span><button class="btn primary" type="button" data-act="add">+ Add your first application</button></div>`;
+    return;
+  }
+  if (!list.length) { $("ledger").innerHTML = `<div class="empty"><strong>Nothing matches</strong><span>Try another status or clear the search.</span></div>`; return; }
+
+  $("ledger").innerHTML = `<div class="row head"><span>Company &amp; role</span><span>Status</span><span>Fit</span><span>Applied</span><span>Follow up</span><span></span></div>` +
+    list.map(a => {
+      const s = S[a.status] || S.saved;
+      const fit = Number.isFinite(a.fit) ? `<span class="fit mono"><span class="bar"><i style="width:${Math.max(0, Math.min(100, a.fit))}%"></i></span>${a.fit}</span>` : `<span class="mono">—</span>`;
+      return `<div class="row">
+        <div class="job"><div class="co">${esc(a.company)}</div><div class="role">${esc(a.role)}${a.location ? " · " + esc(a.location) : ""}${a.source ? " · " + esc(a.source) : ""}</div>${a.link && /^https?:\/\//.test(a.link) ? `<a href="${esc(a.link)}" target="_blank" rel="noopener">View posting</a>` : ""}</div>
+        <div><span class="k">Status</span><select class="status" data-id="${a.id}" aria-label="Status for ${esc(a.company)}" style="--c:var(${s.c})">${STATUSES.map(o => `<option value="${o.id}"${o.id === a.status ? " selected" : ""}>${o.label}</option>`).join("")}</select></div>
+        <div><span class="k">Fit</span>${fit}</div>
+        <div><span class="k">Applied</span><span class="mono">${fmt(a.applied)}</span></div>
+        <div><span class="k">Follow up</span><span class="mono">${fmt(a.followUp)}</span> ${isDue(a) ? '<span class="due">due</span>' : ""}</div>
+        <div class="actions"><button class="btn" type="button" data-act="edit" data-id="${a.id}">Edit</button></div>
+        ${a.notes ? `<div class="notes">${esc(a.notes)}</div>` : ""}
+      </div>`;
+    }).join("");
+}
+function render() { renderPipeline(); renderLedger(); }
+
+function showErr(el, msg) { el.textContent = msg; el.hidden = !msg; }
+function errMsg(e) {
+  if (e && e.code === "quota_exceeded") return "The tracker is full. Delete some old applications and try again.";
+  if (e && e.code === "invalid_argument") return "You have view-only access to this tracker, so changes can't be saved.";
+  return "Couldn't save just now. Check your connection and try again.";
+}
+
+function openForm(a) {
+  editing = a || null;
+  $("formTitle").textContent = a ? "Edit application" : "Add application";
+  const v = a || { status: "applied", applied: today() };
+  ["company", "role", "location", "source", "link", "contact", "notes", "applied", "followUp"].forEach(k => $("f-" + k).value = v[k] || "");
+  $("f-status").value = v.status || "applied";
+  $("f-fit").value = Number.isFinite(v.fit) ? v.fit : "";
+  $("delWrap").innerHTML = a ? `<button class="btn danger" type="button" data-act="askdel">Delete</button>` : "";
+  showErr($("formErr"), "");
+  $("scrim").hidden = false;
+  $("f-company").focus();
+}
+function closeForm() { $("scrim").hidden = true; editing = null; }
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!col) return showErr($("formErr"), "Saving isn't available in this view.");
+  const company = $("f-company").value.trim(), role = $("f-role").value.trim();
+  if (!company || !role) return showErr($("formErr"), "Add the company and the role.");
+  const fitRaw = $("f-fit").value.trim();
+  const body = {
+    company, role,
+    location: $("f-location").value.trim(), source: $("f-source").value.trim(),
+    link: $("f-link").value.trim(), contact: $("f-contact").value.trim(), notes: $("f-notes").value.trim(),
+    status: $("f-status").value, applied: $("f-applied").value, followUp: $("f-followUp").value,
+    fit: fitRaw === "" ? null : Math.max(0, Math.min(100, Math.round(Number(fitRaw)))),
+    updated: new Date().toISOString(),
+  };
+  $("saveBtn").disabled = true;
+  try {
+    if (editing) await col.doc(editing.id).set(body); else await col.add(body);
+    closeForm();
+  } catch (err) { showErr($("formErr"), errMsg(err)); }
+  finally { $("saveBtn").disabled = false; }
+});
+
+document.addEventListener("click", async e => {
+  const t = e.target.closest("[data-act],[data-f]");
+  if (e.target === $("scrim")) return closeForm();
+  if (!t) return;
+  if (t.dataset.f !== undefined) { filter = t.dataset.f || null; return render(); }
+  const act = t.dataset.act;
+  if (act === "add") openForm();
+  if (act === "edit") openForm(apps.find(a => a.id === t.dataset.id));
+  if (act === "askdel") $("delWrap").innerHTML = `<span>Delete this application?</span><button class="btn danger" type="button" data-act="del">Yes, delete</button><button class="btn" type="button" data-act="keep">Keep</button>`;
+  if (act === "keep") $("delWrap").innerHTML = `<button class="btn danger" type="button" data-act="askdel">Delete</button>`;
+  if (act === "del" && editing && col) {
+    try { await col.doc(editing.id).delete(); closeForm(); } catch (err) { showErr($("formErr"), errMsg(err)); }
+  }
+});
+$("addBtn").addEventListener("click", () => openForm());
+$("cancelBtn").addEventListener("click", closeForm);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("scrim").hidden) closeForm(); });
+$("search").addEventListener("input", renderLedger);
+$("sort").addEventListener("change", renderLedger);
+$("ledger").addEventListener("change", async e => {
+  const sel = e.target.closest("select.status"); if (!sel || !col) return;
+  const s = S[sel.value]; sel.style.setProperty("--c", `var(${s.c})`);
+  try { await col.doc(sel.dataset.id).update({ status: sel.value, updated: new Date().toISOString() }); showErr($("pageErr"), ""); }
+  catch (err) { showErr($("pageErr"), errMsg(err)); }
+});
+
+(async () => {
+  db = window.claude ? await window.claude.use("db") : null;
+  if (!db) {
+    loaded = true; apps = []; render();
+    $("ledger").innerHTML = `<div class="empty"><strong>Sign in to see your applications</strong><span>Your tracker is saved to your Claude account, so it only loads when you're signed in.</span></div>`;
+    $("addBtn").hidden = true; return;
+  }
+  col = db.collection("applications");
+  col.onSnapshot(snap => {
+    apps = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    loaded = true; render();
+  }, () => showErr($("pageErr"), "Lost the connection to your tracker. Reload the page to reconnect."));
+})();
+render();
+</script>

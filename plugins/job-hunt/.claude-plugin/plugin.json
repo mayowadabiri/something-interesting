@@ -1,0 +1,7 @@
+{
+  "name": "job-hunt",
+  "description": "Your own automated job hunt: daily search for fresh jobs, interview-chance ratings, keyword-tailored copies of your master CV in Google Drive, a job tracker, and daily cold email drafts. Drafts only; never applies or sends for you.",
+  "author": {
+    "name": "Mayowa Dabiri"
+  }
+}
